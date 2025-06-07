@@ -1,0 +1,636 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>KPI Dashboard</title>
+    <script src="https://cdn.jsdelivr.net/npm/d3@7"></script>
+    <script src="https://cdn.jsdelivr.net/npm/markmap-view@0.15.4/dist/browser/index.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@3.9.1/dist/chart.min.js"></script>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 0;
+            background-color: #1e1e1e; /* Dark background for high contrast */
+            color: #e0e0e0; /* Light text */
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+        }
+
+        header {
+            background-color: #333;
+            color: white;
+            padding: 10px 20px;
+            text-align: center;
+        }
+
+        #main-container {
+            display: flex;
+            flex-grow: 1; /* Allows this container to fill available space */
+            overflow: hidden; /* Prevent scrollbars on the container itself */
+        }
+
+        #mindmap-container {
+            width: 40%; /* Adjust as needed */
+            height: 100%;
+            overflow: auto; /* Scrollbars if mindmap is too large */
+            border-right: 2px solid #444;
+            padding: 15px;
+            box-sizing: border-box;
+        }
+
+        #chart-kpi-details-container {
+            width: 60%; /* Adjust as needed */
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+            padding: 15px;
+            box-sizing: border-box;
+        }
+
+        #kpi-title-info {
+            height: 10%; /* Space for selected KPI name and basic info */
+            padding-bottom: 10px;
+            box-sizing: border-box;
+            border-bottom: 1px solid #444;
+            margin-bottom: 10px;
+            overflow-y: auto;
+        }
+        #kpi-title-info h2 {
+            margin-top: 0;
+        }
+
+        #chart-container {
+            flex-grow: 1; /* Chart takes remaining vertical space */
+            overflow: hidden; /* Contains the chart */
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        #kpi-chart { /* Canvas element for the chart */
+            max-width: 100%;
+            max-height: 100%;
+        }
+
+        /* Basic styling for high contrast */
+        .kpi-node { /* Example style for mindmap nodes */
+            cursor: pointer;
+        }
+        .kpi-node:hover {
+            fill: #007bff; /* Example hover color */
+        }
+
+    </style>
+</head>
+<body>
+    <header>
+        <h1>KPI 指标监控面板 (KPI Dashboard)</h1>
+    </header>
+
+    <div id="main-container">
+        <div id="mindmap-container">
+            <svg id="markmap-svg" style="width: 100%; height: 100%;"></svg>
+        </div>
+
+        <div id="chart-kpi-details-container">
+            <div id="kpi-title-info">
+                <h2 id="selected-kpi-name">请选择一个KPI指标 (Please select a KPI)</h2>
+                <p id="selected-kpi-details"></p> <!-- For formula, department etc. -->
+            </div>
+            <div id="chart-container">
+                <canvas id="kpi-chart"></canvas> <!-- Chart.js or similar will use this canvas -->
+            </div>
+        </div>
+    </div>
+
+    <!-- JavaScript libraries will be added here later -->
+    <!-- e.g., <script src="https://cdn.jsdelivr.net/npm/chart.js"></script> -->
+    <!-- e.g., <script src="https://cdn.jsdelivr.net/npm/markmap-lib"></script> -->
+    <!-- <script src="app.js"></script> -->
+    <script>
+        const kpiJsonData = [
+    {
+        "id": "1",
+        "name": "核算达标率",
+        "fill_department": "北部区域",
+        "decompose_department": "财务区域/财务部",
+        "formula": "结账时效50%，核算准确率50%",
+        "is_cost_metric": false,
+        "monthly_targets": [
+            1.0,
+            1.0,
+            1.0,
+            1.0,
+            1.0,
+            1.0,
+            1.0,
+            1.0,
+            1.0,
+            1.0,
+            1.0,
+            1.0
+        ],
+        "monthly_actuals": [
+            0.88,
+            1.0,
+            0.88,
+            1.0,
+            1.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0
+        ],
+        "children": [
+            {
+                "id": "1.1",
+                "name": "结账时效",
+                "fill_department": "北部区域",
+                "decompose_department": "财务部",
+                "formula": "实际达成结账时效公司个数/4",
+                "is_cost_metric": false,
+                "monthly_targets": [
+                    1.0,
+                    1.0,
+                    1.0,
+                    1.0,
+                    1.0,
+                    null,
+                    null,
+                    null,
+                    null,
+                    null,
+                    null,
+                    null
+                ],
+                "monthly_actuals": [
+                    0.75,
+                    1.0,
+                    0.75,
+                    1.0,
+                    1.0,
+                    null,
+                    null,
+                    null,
+                    null,
+                    null,
+                    null,
+                    null
+                ],
+                "children": []
+            },
+            {
+                "id": "1.2",
+                "name": "核算准确率",
+                "fill_department": "北部区域",
+                "decompose_department": "财务部",
+                "formula": "外部审计30%+内审30%+自查40%",
+                "is_cost_metric": false,
+                "monthly_targets": [
+                    1.0,
+                    1.0,
+                    1.0,
+                    1.0,
+                    1.0,
+                    null,
+                    null,
+                    null,
+                    null,
+                    null,
+                    null,
+                    null
+                ],
+                "monthly_actuals": [
+                    1.0,
+                    1.0,
+                    1.0,
+                    1.0,
+                    1.0,
+                    null,
+                    null,
+                    null,
+                    null,
+                    null,
+                    null,
+                    null
+                ],
+                "children": []
+            }
+        ]
+    },
+    {
+        "id": "2",
+        "name": "现金净流量",
+        "fill_department": "北部区域",
+        "decompose_department": "财务区域",
+        "formula": "现金流量表",
+        "is_cost_metric": false,
+        "monthly_targets": [
+            7827.0,
+            -37.42,
+            -173.62,
+            4091.65,
+            -435.82,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null
+        ],
+        "monthly_actuals": [
+            -688.0,
+            11043.0,
+            -923.89,
+            9824.0,
+            -3709.1,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null
+        ],
+        "children": []
+    },
+    {
+        "id": "3",
+        "name": "管理费用率",
+        "fill_department": "北部区域",
+        "decompose_department": "财务区域",
+        "formula": "管理费用/收入",
+        "is_cost_metric": false,
+        "monthly_targets": [
+            1.0,
+            1.0,
+            1.0,
+            1.0,
+            1.0,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null
+        ],
+        "monthly_actuals": [
+            0.88,
+            1.0,
+            0.88,
+            1.0,
+            1.0,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null
+        ],
+        "children": [
+            {
+                "id": "3.1",
+                "name": "招待费合规率",
+                "fill_department": "北部区域",
+                "decompose_department": "财务部",
+                "formula": "招待费合规金额/招待费总金额",
+                "is_cost_metric": false,
+                "monthly_targets": [
+                    1.0,
+                    1.0,
+                    1.0,
+                    1.0,
+                    1.0,
+                    null,
+                    null,
+                    null,
+                    null,
+                    null,
+                    null,
+                    null
+                ],
+                "monthly_actuals": [
+                    0.75,
+                    1.0,
+                    0.75,
+                    1.0,
+                    1.0,
+                    null,
+                    null,
+                    null,
+                    null,
+                    null,
+                    null,
+                    null
+                ],
+                "children": []
+            },
+            {
+                "id": "3.2",
+                "name": "差旅费合规率",
+                "fill_department": "北部区域",
+                "decompose_department": "财务部",
+                "formula": "差旅费合规金额/差旅费总金额",
+                "is_cost_metric": false,
+                "monthly_targets": [
+                    1.0,
+                    1.0,
+                    1.0,
+                    1.0,
+                    1.0,
+                    null,
+                    null,
+                    null,
+                    null,
+                    null,
+                    null,
+                    null
+                ],
+                "monthly_actuals": [
+                    1.0,
+                    1.0,
+                    1.0,
+                    1.0,
+                    1.0,
+                    null,
+                    null,
+                    null,
+                    null,
+                    null,
+                    null,
+                    null
+                ],
+                "children": []
+            }
+        ]
+    },
+    {
+        "id": "4",
+        "name": "资产负债率",
+        "fill_department": "北部区域",
+        "decompose_department": "财务区域",
+        "formula": "负债/资产*100%",
+        "is_cost_metric": false,
+        "monthly_targets": [
+            1.0,
+            1.0,
+            1.0,
+            1.0,
+            1.0,
+            1.0,
+            1.0,
+            1.0,
+            1.0,
+            1.0,
+            1.0,
+            1.0
+        ],
+        "monthly_actuals": [
+            0.88,
+            1.0,
+            0.88,
+            1.0,
+            1.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0
+        ],
+        "children": []
+    },
+    {
+        "id": "5",
+        "name": "利润总额",
+        "fill_department": "北部区域",
+        "decompose_department": "财务区域",
+        "formula": "利润表",
+        "is_cost_metric": false,
+        "monthly_targets": [
+            7827.0,
+            -37.42,
+            -173.62,
+            4091.65,
+            -435.82,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null
+        ],
+        "monthly_actuals": [
+            -688.0,
+            11043.0,
+            -923.89,
+            9824.0,
+            -3709.1,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null
+        ],
+        "children": []
+    }
+];
+        let currentKpiChart = null;
+
+        function getKpiDataById(kpiId, kpiDataArray) {
+            for (const kpi of kpiDataArray) {
+                if (kpi.id === kpiId) {
+                    return kpi;
+                }
+                if (kpi.children && kpi.children.length > 0) {
+                    const foundInChildren = getKpiDataById(kpiId, kpi.children);
+                    if (foundInChildren) {
+                        return foundInChildren;
+                    }
+                }
+            }
+            return null;
+        }
+
+        function displayKpiChart(kpiId) {
+            const kpi = getKpiDataById(kpiId, kpiJsonData);
+
+            if (!kpi) {
+                console.error('KPI data not found for ID:', kpiId);
+                return;
+            }
+
+            document.getElementById('selected-kpi-name').textContent = kpi.name + (kpi.id ? ` (ID: ${kpi.id})` : '');
+            document.getElementById('selected-kpi-details').textContent = `公式 (Formula): ${kpi.formula || 'N/A'} | 填写部门 (Filling Dept): ${kpi.fill_department || 'N/A'} | 分解部门 (Decomposition Dept): ${kpi.decompose_department || 'N/A'}`;
+
+
+            const monthLabels = ["1月", "2月", "3月", "4月", "5月", "6月", "7月", "8月", "9月", "10月", "11月", "12月"];
+            const targets = kpi.monthly_targets || [];
+            const actuals = kpi.monthly_actuals || [];
+
+            const actualBarColors = [];
+            const actualBarBorderColors = []; // Optional: if you want different border colors too
+
+            for (let i = 0; i < 12; i++) {
+                const target = targets[i];
+                const actual = actuals[i];
+                let color = 'rgba(201, 203, 207, 0.6)'; // Default grey for no target or actual not applicable
+
+                if (target !== null && target !== undefined && actual !== null && actual !== undefined) {
+                    if (target === 0) { // Handle target is zero
+                        if (actual > 0) color = 'rgba(75, 192, 192, 0.6)'; // Green
+                        else if (actual <= 0) color = 'rgba(255, 99, 132, 0.6)'; // Red
+                    } else { // Target is not zero
+                        if (actual >= target) {
+                            color = 'rgba(75, 192, 192, 0.6)'; // Green
+                        } else if (actual >= 0.9 * target) {
+                            color = 'rgba(255, 206, 86, 0.6)'; // Yellow
+                        } else {
+                            color = 'rgba(255, 99, 132, 0.6)'; // Red
+                        }
+                    }
+                } else if (actual !== null && actual !== undefined) {
+                    // Actual value exists, but no target - could be grey or another color
+                    color = 'rgba(150, 150, 150, 0.6)'; // Different shade of grey
+                }
+                // if actual is null, it will take the default grey or Chart.js might skip it.
+
+                actualBarColors.push(color);
+                actualBarBorderColors.push(color.replace('0.6', '1')); // Make border opaque version of fill
+            }
+
+            if (currentKpiChart) {
+                currentKpiChart.destroy();
+            }
+
+            const ctx = document.getElementById('kpi-chart').getContext('2d');
+            currentKpiChart = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: monthLabels,
+                    datasets: [
+                        {
+                            label: '目标 (Target)',
+                            data: targets,
+                            backgroundColor: 'rgba(54, 162, 235, 0.6)',
+                            borderColor: 'rgba(54, 162, 235, 1)',
+                            borderWidth: 1
+                        },
+                        {
+                            label: '实际 (Actual)',
+                            data: actuals,
+                            backgroundColor: actualBarColors,
+                            borderColor: actualBarBorderColors,
+                            borderWidth: 1
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            ticks: { color: '#e0e0e0' },
+                            grid: { color: '#444' }
+                        },
+                        x: {
+                            ticks: { color: '#e0e0e0' },
+                            grid: { color: '#444' }
+                        }
+                    },
+                    plugins: {
+                        legend: {
+                            labels: {
+                                color: '#e0e0e0'
+                            }
+                        },
+                        tooltip: {
+                            callbacks: {
+                                label: function(context) {
+                                    let label = context.dataset.label || '';
+                                    if (label) {
+                                        label += ': ';
+                                    }
+                                    if (context.parsed.y !== null) {
+                                        // Add percentage formatting for certain KPIs if needed, e.g. based on kpi.name or kpi.id
+                                        // For now, general number formatting.
+                                        if ( (kpi.id === "1" || kpi.id === "1.1" || kpi.id === "1.2" || kpi.id === "3" || kpi.id === "3.1" || kpi.id === "3.2" || kpi.id === "4") && typeof context.parsed.y === 'number' ) {
+                                           label += (context.parsed.y * 100).toFixed(2) + '%';
+                                        } else {
+                                           label += context.parsed.y;
+                                        }
+                                    }
+                                    return label;
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+        }
+
+        function jsonToMarkdown(kpiDataArray, depth = 0) {
+            let markdown = '';
+            const indent = '  '.repeat(depth); // Two spaces for indentation
+            kpiDataArray.forEach(kpi => {
+                markdown += `${indent}- ${kpi.name} (ID: ${kpi.id})\n`;
+                if (kpi.children && kpi.children.length > 0) {
+                    markdown += jsonToMarkdown(kpi.children, depth + 1);
+                }
+            });
+            return markdown;
+        }
+
+        function renderMindmap(markdownData) {
+            const { Markmap } = window.markmap; // Access Markmap from global window object
+            const mm = Markmap.create('#markmap-svg', null, markdownData); // Target the SVG element
+
+            // Add click listener to nodes
+            // Markmap renders nodes as <g> elements with <text> inside.
+            // We'll listen on the <g class="markmap-node"> elements.
+            // Need to wait for markmap to render, so use a small timeout or a more robust way if available
+            setTimeout(() => {
+                const svgElement = document.getElementById('markmap-svg');
+                if (svgElement) {
+                    const nodes = svgElement.querySelectorAll('g.markmap-node text');
+                    nodes.forEach(node => {
+                        node.addEventListener('click', (event) => {
+                            // event.target is the <text> element. Its textContent is the node label.
+                            const nodeText = event.target.textContent;
+                            console.log('Clicked KPI Node:', nodeText);
+                            // Extract ID: assumes format "KPI Name (ID: kpiId)"
+                            const match = nodeText.match(/\(ID: (.*?)\)$/);
+                            if (match && match[1]) {
+                                displayKpiChart(match[1]);
+                            } else {
+                                console.error("Could not extract KPI ID from node text:", nodeText);
+                            }
+                        });
+                        // Add basic pointer cursor to indicate clickability
+                        node.style.cursor = 'pointer';
+                    });
+                }
+            }, 500); // 500ms delay, adjust if necessary or find a Markmap event for render completion
+        }
+
+        window.onload = () => {
+            const markdown = jsonToMarkdown(kpiJsonData);
+            document.getElementById('mindmap-container').title = markdown; // For debugging, show markdown in tooltip
+            renderMindmap(markdown);
+        };
+    </script>
+</body>
+</html>
